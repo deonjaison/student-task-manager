@@ -1,5 +1,5 @@
-```java
 import java.io.*;
+import java.nio.file.*;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.logging.*;
@@ -27,8 +27,7 @@ class Task {
         this.createdAt = LocalDate.now().toString();
     }
 
-    public Task(String title, String dueDate, String category,
-                String status, String createdAt) {
+    public Task(String title, String dueDate, String category, String status, String createdAt) {
         this.title = title;
         this.dueDate = dueDate;
         this.category = category;
@@ -62,12 +61,9 @@ class Task {
 }
 
 class TaskManager {
-    private ArrayList<Task> tasks = new ArrayList<>();
-
+    private final ArrayList<Task> tasks = new ArrayList<>();
     private static final String FILE_NAME = "tasks_data.txt";
-
-    private static final Logger logger =
-            Logger.getLogger(TaskManager.class.getName());
+    private static final Logger logger = Logger.getLogger(TaskManager.class.getName());
 
     public TaskManager() {
         loadData();
@@ -81,7 +77,6 @@ class TaskManager {
 
             logger.info("Added task: " + title);
             System.out.println("Task added successfully.");
-
         } catch (Exception e) {
             logger.warning("Could not add task: " + e.getMessage());
             System.out.println("Something went wrong while adding the task.");
@@ -89,19 +84,17 @@ class TaskManager {
     }
 
     public void viewTasks() {
-        if (tasks.size() == 0) {
+        if (tasks.isEmpty()) {
             System.out.println("\nNo tasks found.");
             return;
         }
 
         System.out.printf("\n%-5s %-20s %-12s %-12s %-15s%n",
                 "ID", "Title", "Due Date", "Status", "Category");
-
         System.out.println("----------------------------------------------------------------");
 
         for (int i = 0; i < tasks.size(); i++) {
             Task task = tasks.get(i);
-
             System.out.printf("%-5d %-20s %-12s %-12s %-15s%n",
                     i + 1,
                     task.getTitle(),
@@ -117,7 +110,7 @@ class TaskManager {
                 tasks.get(id - 1).setStatus("Completed");
                 saveData();
 
-                logger.info("Completed task: " + id);
+                logger.info("Completed task ID: " + id);
                 System.out.println("Task marked as completed.");
             } else {
                 System.out.println("Invalid Task ID.");
@@ -144,40 +137,32 @@ class TaskManager {
     }
 
     private void saveData() {
-        try {
-            FileWriter file = new FileWriter(FILE_NAME);
-            PrintWriter writer = new PrintWriter(file);
-
+        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(FILE_NAME))) {
             for (Task task : tasks) {
-                writer.println(
-                        task.getTitle() + "|" +
+                // Sanitizing potential pipe entries to prevent data layout breaks
+                String cleanTitle = task.getTitle().replace("|", "-");
+                String cleanCat = task.getCategory().replace("|", "-");
+
+                writer.write(cleanTitle + "|" +
                         task.getDueDate() + "|" +
-                        task.getCategory() + "|" +
+                        cleanCat + "|" +
                         task.getStatus() + "|" +
-                        task.getCreatedAt()
-                );
+                        task.getCreatedAt());
+                writer.newLine();
             }
-
-            writer.close();
-
         } catch (IOException e) {
             logger.warning("Could not save tasks: " + e.getMessage());
         }
     }
 
     private void loadData() {
-        File file = new File(FILE_NAME);
-
-        if (!file.exists()) {
+        Path path = Paths.get(FILE_NAME);
+        if (!Files.exists(path)) {
             return;
         }
 
-        try {
-            BufferedReader reader =
-                    new BufferedReader(new FileReader(file));
-
+        try (BufferedReader reader = Files.newBufferedReader(path)) {
             String line;
-
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
 
@@ -189,13 +174,9 @@ class TaskManager {
                             parts[3],
                             parts[4]
                     );
-
                     tasks.add(task);
                 }
             }
-
-            reader.close();
-
         } catch (Exception e) {
             logger.warning("Could not load saved tasks.");
             tasks.clear();
@@ -210,7 +191,6 @@ class TaskManager {
 class AnalyticsEngine {
 
     public static void generateReport(ArrayList<Task> tasks) {
-
         if (tasks.isEmpty()) {
             System.out.println("\nNot enough data for analytics.");
             return;
@@ -220,7 +200,7 @@ class AnalyticsEngine {
         int completed = 0;
 
         for (Task task : tasks) {
-            if (task.getStatus().equals("Completed")) {
+            if ("Completed".equalsIgnoreCase(task.getStatus())) {
                 completed++;
             }
         }
@@ -232,12 +212,7 @@ class AnalyticsEngine {
 
         for (Task task : tasks) {
             String category = task.getCategory();
-
-            if (categories.containsKey(category)) {
-                categories.put(category, categories.get(category) + 1);
-            } else {
-                categories.put(category, 1);
-            }
+            categories.put(category, categories.getOrDefault(category, 0) + 1);
         }
 
         System.out.println("\n--- Productivity Analytics ---");
@@ -247,18 +222,15 @@ class AnalyticsEngine {
         System.out.println("Completion Rate: " + completionRate + "%");
 
         System.out.println("\nTasks by Category:");
-
-        for (String category : categories.keySet()) {
-            System.out.println("- " + category + ": "
-                    + categories.get(category));
+        for (Map.Entry<String, Integer> entry : categories.entrySet()) {
+            System.out.println("- " + entry.getKey() + ": " + entry.getValue());
         }
     }
 }
 
 class CLIInterface {
-
-    private TaskManager manager;
-    private Scanner scanner;
+    private final TaskManager manager;
+    private final Scanner scanner;
 
     public CLIInterface() {
         manager = new TaskManager();
@@ -266,7 +238,6 @@ class CLIInterface {
     }
 
     public void run() {
-
         while (true) {
             System.out.println("\n=== Student Task Manager ===");
             System.out.println("1. Add Task");
@@ -277,36 +248,27 @@ class CLIInterface {
             System.out.println("6. Exit");
 
             System.out.print("Enter your choice: ");
-            String choice = scanner.nextLine();
+            String choice = scanner.nextLine().trim();
 
             switch (choice) {
-
                 case "1":
                     addTask();
                     break;
-
                 case "2":
                     manager.viewTasks();
                     break;
-
                 case "3":
                     completeTask();
                     break;
-
                 case "4":
                     deleteTask();
                     break;
-
                 case "5":
-                    AnalyticsEngine.generateReport(
-                            manager.getTasks());
+                    AnalyticsEngine.generateReport(manager.getTasks());
                     break;
-
                 case "6":
                     System.out.println("Goodbye!");
-                    scanner.close();
                     return;
-
                 default:
                     System.out.println("Invalid choice. Try again.");
             }
@@ -315,43 +277,51 @@ class CLIInterface {
 
     private void addTask() {
         System.out.print("Enter task title: ");
-        String title = scanner.nextLine();
+        String title = scanner.nextLine().trim();
 
         System.out.print("Enter due date (YYYY-MM-DD): ");
-        String date = scanner.nextLine();
+        String date = scanner.nextLine().trim();
 
         System.out.print("Enter category: ");
-        String category = scanner.nextLine();
+        String category = scanner.nextLine().trim();
+
+        if (title.isEmpty() || date.isEmpty() || category.isEmpty()) {
+            System.out.println("Input fields cannot be blank.");
+            return;
+        }
 
         manager.addTask(title, date, category);
     }
 
     private void completeTask() {
-        manager.viewTasks();
+        if (manager.getTasks().isEmpty()) {
+            System.out.println("\nNo tasks available to mark complete.");
+            return;
+        }
 
+        manager.viewTasks();
         try {
             System.out.print("Enter Task ID to complete: ");
-            int id = Integer.parseInt(scanner.nextLine());
-
+            int id = Integer.parseInt(scanner.nextLine().trim());
             manager.markComplete(id);
-
         } catch (NumberFormatException e) {
-            System.out.println("Please enter a valid number.");
+            System.out.println("Please enter a valid numeric ID.");
         }
     }
 
     private void deleteTask() {
-        manager.viewTasks();
+        if (manager.getTasks().isEmpty()) {
+            System.out.println("\nNo tasks available to delete.");
+            return;
+        }
 
+        manager.viewTasks();
         try {
             System.out.print("Enter Task ID to delete: ");
-            int id = Integer.parseInt(scanner.nextLine());
-
+            int id = Integer.parseInt(scanner.nextLine().trim());
             manager.deleteTask(id);
-
         } catch (NumberFormatException e) {
-            System.out.println("Please enter a valid number.");
+            System.out.println("Please enter a valid numeric ID.");
         }
     }
 }
-```
